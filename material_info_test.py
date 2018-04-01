@@ -96,6 +96,17 @@ def list_connections_api(depnode_fn, source, destination, node_types=None):
                     fn.setObject(dest_node)
                     yield fn
 
+def list_connections_api2(depnode_fn, source, destination, node_type):
+    fn = om2.MFnDependencyNode()
+    for plug in depnode_fn.getConnections():
+        # for dest_plug in filter(lambda x: x.node().apiType() == node_type, plug.connectedTo(destination, source)):
+        #     fn.setObject(dest_plug.node())
+        #     yield fn
+        for dest_plug in plug.connectedTo(destination, source):
+            dest_node = dest_plug.node()
+            if dest_node.apiType() == node_type:
+                fn.setObject(dest_node)
+                yield fn
 
 def list_materials_api2():
     result = {}
@@ -126,16 +137,39 @@ def list_materials_api2():
 
     return result
 
+def list_materials_api3():
+    result = {}
+
+    for material_node_fn in ls_api(om2.MFn.kLambert):
+        material = material_node_fn.name()
+        if material == 'lambert1':
+            continue
+        
+        files = []
+        for dest_node_fn in list_connections_api2(material_node_fn, False, True, om2.MFn.kFileTexture):
+            file_attr = dest_node_fn.findPlug('fileTextureName', False)
+            files.append(file_attr.asString())
+
+        sg_node_fns = [x for x in list_connections_api2(material_node_fn, True, False, om2.MFn.kShadingEngine)]
+        
+        shapes = []
+        for node_fn in sg_node_fns:
+            for dest_node_fn in list_connections_api(node_fn, False, True, [om2.MFn.kMesh]):
+                shapes.append(dest_node_fn.name())
+        
+        result[material] = {'files': files, 'shapes': shapes}
+
+    return result
 
 def main():
     iterations = 100
     # print timeit(list_materials_cmds, number=iterations) / iterations
     # print timeit(list_materials_api, number=iterations) / iterations
     # print timeit(list_materials_api2, number=iterations) / iterations
+    print timeit(list_materials_api3, number=iterations) / iterations
 
-    def ls_api2():
-        return [x.name() for x in ls_api()]
-    print timeit(ls_api2, number=iterations)
-    print timeit(cmds.ls, number=iterations)
+    # def ls_api2():
+    #     return [x.name() for x in ls_api()]
+    # print timeit(ls_api2, number=iterations)
+    # print timeit(cmds.ls, number=iterations)
 
-main()
